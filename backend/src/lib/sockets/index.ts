@@ -30,6 +30,7 @@ const websocketsManager = async (ws:WebSocketServer) =>{
             switch (message.type) {
                 case 'getRouterRtpCapabilities':
                     onRouterRtpCapabilities(socket);
+                    break;
                     
                         
             }
