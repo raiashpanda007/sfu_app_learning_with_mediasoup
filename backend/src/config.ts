@@ -45,7 +45,9 @@ export const config = {
                     announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1' // Change krna hai dhhyan rakhna
 
                 } 
-             ] as TransportListenInfo[]
+             ] as TransportListenInfo[],
+             maxIncomeBitrate: 1500000,
+             initialAvailableOutgoingBitrate: 1000000,
         }
     }
 } as const;
