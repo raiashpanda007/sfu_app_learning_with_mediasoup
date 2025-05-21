@@ -28,8 +28,8 @@ const ProducerTransportCreated = async (event:any,device:Device,ws:WebSocket) =>
     transport.on('produce', async ({kind,rtpParameters},callback,errback) =>{
         const message = {
             type: 'produce',
-            kind,
-            rtpParameters,
+            data:{kind,
+            rtpParameters,}
         }
         
         ws.send(JSON.stringify(message));
