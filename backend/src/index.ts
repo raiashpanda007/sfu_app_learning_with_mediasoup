@@ -1,20 +1,17 @@
-import dotenv from 'dotenv';
 import express from 'express';
-import ws from 'ws';
 import { createServer } from 'http';
-import websocketsManager from './lib/sockets';
+import { Server as WebSocketServer } from 'ws';
+import dotenv from 'dotenv';
+import WebSocketHandler from './lib/sockets';
+
 dotenv.config();
 
 const app = express();
 const server = createServer(app);
-const wss = new ws.Server({ server ,path: '/'});
+const wss = new WebSocketServer({ server, path: '/' });
 
-websocketsManager(wss);
+const socketHandler = new WebSocketHandler(wss);
+socketHandler.init();
 
 const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    }
-);
-
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));

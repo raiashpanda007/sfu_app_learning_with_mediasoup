@@ -1,37 +1,41 @@
-import {createWorker} from 'mediasoup';
-import { config } from '../config'
-import { Worker, Router } from 'mediasoup/node/lib/types';
-import { log } from 'console';
+import { createWorker } from 'mediasoup';
+import type { Router, Worker } from 'mediasoup/node/lib/types';
+import { config } from '../config';
 
-const worker: Array<{
-    worker: Worker,
-    router: Router
-}> = []
+class WorkerPool {
+  private static instance: WorkerPool;
+  private router!: Router; // Definite assignment assertion
 
-let workerIndex = 0;
+  private constructor() {}
 
-const CreateWorker = async () => {
-    const newWorker = await createWorker({
-        logLevel: config.mediasoup.worker.logLevel,
-        logTags: config.mediasoup.worker.logTags,
-        rtcMinPort: config.mediasoup.worker.rtcMinPort,
-        rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
-        
+  static async getInstance(): Promise<WorkerPool> {
+    if (!WorkerPool.instance) {
+      const pool = new WorkerPool();
+      await pool.createWorkerAndRouter();
+      WorkerPool.instance = pool;
+    }
+    return WorkerPool.instance;
+  }
+
+  private async createWorkerAndRouter() {
+    const worker: Worker = await createWorker({
+      rtcMinPort: config.mediasoup.worker.rtcMinPort,
+      rtcMaxPort: config.mediasoup.worker.rtcMaxPort,
+      logLevel: config.mediasoup.worker.logLevel,
+      logTags: config.mediasoup.worker.logTags
     });
-    newWorker.on('died', () => {
-        console.error('mediasoup worker died [pid:%d]', newWorker.pid);
-        setTimeout(() => {
-            console.log('worker died, exiting in 2 seconds...');
-            process.exit(1);
-        }
-        , 2000);
-        
+
+    worker.on('died', () => {
+      console.error(`mediasoup Worker died [pid:${worker.pid}], exiting in 2s`);
+      setTimeout(() => process.exit(1), 2000);
     });
-    const mediaCodecs = config.mediasoup.router.mediaCodecs;
-    const mediasoupRouter = await newWorker.createRouter({
-        mediaCodecs
-    });
-    return mediasoupRouter;
+
+    this.router = await worker.createRouter({ mediaCodecs: config.mediasoup.router.mediaCodecs });
+  }
+
+  getRouter(): Router {
+    return this.router;
+  }
 }
 
-export {CreateWorker}
+export default WorkerPool;

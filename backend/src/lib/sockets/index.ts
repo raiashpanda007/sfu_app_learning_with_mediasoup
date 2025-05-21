@@ -1,90 +1,128 @@
-import { WebSocketServer, WebSocket } from "ws";
-import { CreateWorker } from "../worker";
-import { Router } from "mediasoup/node/lib/RouterTypes";
-import CreateProducerTransport from '../WebRTC/CreateProducerTransport'
-import { Transport } from "mediasoup/node/lib/TransportTypes";
-import { DtlsParameters } from "mediasoup/node/lib/WebRtcTransportTypes";
-import { MediaKind, RtpParameters } from "mediasoup/node/lib/rtpParametersTypes";
-import { Producer } from "mediasoup/node/lib/ProducerTypes";
+import { WebSocketServer, WebSocket } from 'ws';
+import WorkerPool from '../worker';
+import CreateProducerTransport from '../WebRTC/CreateProducerTransport';
+import type { Router, Transport, Producer } from 'mediasoup/node/lib/types';
+import type { DtlsParameters } from 'mediasoup/node/lib/WebRtcTransportTypes';
+import type { MediaKind, RtpParameters } from 'mediasoup/node/lib/rtpParametersTypes';
 
-let mediaSoupRouter: Router;
-let producerTransport: Transport;
-let producer: Producer;
+type Client = {
+  socket: WebSocket;
+  producerTransport?: Transport;
+  producer?: Producer;
+};
 
-const broadcast = (data: any, type: string, ws: WebSocketServer) => {
-    const message = {
-        type,
-        data
+class WebSocketHandler {
+  private wss: WebSocketServer;
+  private router!: Router;
+  private clients = new Map<WebSocket, Client>();
+
+  constructor(wss: WebSocketServer) {
+    this.wss = wss;
+  }
+
+  public async init() {
+    const workerPool = await WorkerPool.getInstance();
+    this.router = workerPool.getRouter();
+
+    this.wss.on('connection', (socket: WebSocket) => {
+      this.clients.set(socket, { socket });
+
+      socket.on('message', async (msg) => {
+        const message = JSON.parse(msg.toString());
+
+        switch (message.type) {
+          case 'getRouterRtpCapabilities':
+            this.send(socket, 'routerRtpCapabilities', this.router.rtpCapabilities);
+            break;
+
+          case 'createProducerTransport':
+            await this.createProducerTransport(socket);
+            break;
+
+          case 'connectProducerTransport':
+            await this.connectProducerTransport(socket, message.dtlsParameters);
+            break;
+
+          case 'produce':
+            await this.produce(socket, message.data);
+            break;
+
+          default:
+            console.warn('Unknown message type', message.type);
+        }
+      });
+
+      socket.on('close', () => {
+        this.cleanupClient(socket);
+      });
+    });
+  }
+
+  private send(socket: WebSocket, type: string, data: any) {
+    socket.send(JSON.stringify({ type, data, nature: 'response' }));
+  }
+
+  private async createProducerTransport(socket: WebSocket) {
+    const producerTransport = await CreateProducerTransport.create(this.router);
+    const params = producerTransport.params;
+
+    // Save the transport for this client
+    const client = this.clients.get(socket);
+    if (!client) return;
+    client.producerTransport = producerTransport['transport']; // accessing internal transport
+
+    this.send(socket, 'producerTransportCreated', params);
+  }
+
+  private async connectProducerTransport(socket: WebSocket, dtlsParameters: DtlsParameters) {
+    const client = this.clients.get(socket);
+    if (!client || !client.producerTransport) {
+      this.send(socket, 'error', 'No producer transport found');
+      return;
     }
-    ws.clients.forEach((client) => {
-        client.send(JSON.stringify(message));
-    })
-}
 
-const onRouterRtpCapabilities = (socket: WebSocket) => {
-    const message = JSON.stringify({ data: mediaSoupRouter.rtpCapabilities, type: 'routerRtpCapabilities', nature: 'response' });
-    socket.send(message);
+    await client.producerTransport.connect({ dtlsParameters });
+    this.send(socket, 'producerConnected', {});
+  }
 
-}
-
-const onCreateProducerTransport = async (ws: WebSocket) => {
-    const { transport, params } = await CreateProducerTransport(mediaSoupRouter);
-    const message = JSON.stringify({ data: params, type: 'producerTransportCreated', nature: 'response' });
-    producerTransport = transport;
-    ws.send(message);
-}
-const onConnectProducerTransport = async (dtlsParameters: DtlsParameters, ws: WebSocket) => {
-    await producerTransport.connect({ dtlsParameters });
-    ws.send(JSON.stringify({
-        type: "producerConnected",
-
-    }))
-
-}
-
-const onProduce = async (data: { kind: MediaKind, rtpParameters: RtpParameters }, ws: WebSocket,wss: WebSocketServer) => {
-    const { kind, rtpParameters } = data;
-    producer = await producerTransport.produce({ kind, rtpParameters });
-    const message = {
-        id: producer.id,
-
+  private async produce(socket: WebSocket, data: { kind: MediaKind; rtpParameters: RtpParameters }) {
+    const client = this.clients.get(socket);
+    if (!client || !client.producerTransport) {
+      this.send(socket, 'error', 'No producer transport found');
+      return;
     }
 
-    ws.send(JSON.stringify({
-        type: 'produced',
-        data: message,
-    }))
-    broadcast('new user', 'newProducer', wss);
-}
+    const producer = await client.producerTransport.produce({
+      kind: data.kind,
+      rtpParameters: data.rtpParameters
+    });
 
-const websocketsManager = async (ws: WebSocketServer) => {
-    try {
-        mediaSoupRouter = await CreateWorker();
-    } catch (error) {
-        throw new Error(`Error creating worker: ${error}`);
+    client.producer = producer;
+
+    this.send(socket, 'produced', { id: producer.id });
+
+    // Broadcast new producer event to other clients
+    this.wss.clients.forEach((otherSocket) => {
+      if (otherSocket !== socket && otherSocket.readyState === WebSocket.OPEN) {
+        otherSocket.send(JSON.stringify({ type: 'newProducer', data: { producerId: producer.id } }));
+      }
+    });
+  }
+
+  private cleanupClient(socket: WebSocket) {
+    const client = this.clients.get(socket);
+    if (!client) return;
+
+    // Close transports & producers cleanly if needed
+    if (client.producer) {
+      client.producer.close();
     }
-    ws.on('connection', (socket) => {
-        console.log('New client connected');
-        socket.on('message', (event) => {
-            const message = JSON.parse(event.toString());
-            switch (message.type) {
-                case 'getRouterRtpCapabilities':
-                    onRouterRtpCapabilities(socket);
-                    break;
-                case 'createProducerTransport':
-                    onCreateProducerTransport(socket);
-                    break;
-                case 'connectProducerTransport':
-                    onConnectProducerTransport(message.dtlsParameters, socket)
-                    break;
-                case 'produce':
-                    onProduce(message.data, socket,ws);
-                    break;
-            }
-        });
-    })
+    if (client.producerTransport) {
+      client.producerTransport.close();
+    }
 
-
+    this.clients.delete(socket);
+  }
 }
 
-export default websocketsManager;
+export default WebSocketHandler;

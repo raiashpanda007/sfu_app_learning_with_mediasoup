@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/lib/sockets/index.ts"],"version":"5.6.3"}
+{"root":["./src/config.ts","./src/index.ts","./src/lib/worker.ts","./src/lib/WebRTC/CreateProducerTransport.ts","./src/lib/sockets/index.ts"],"version":"5.6.3"}
