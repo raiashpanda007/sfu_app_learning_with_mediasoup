@@ -3,6 +3,7 @@ import { CreateWorker } from "../worker";
 import { Router } from "mediasoup/node/lib/RouterTypes";
 import CreateProducerTransport from '../WebRTC/CreateProducerTransport'
 import { Transport } from "mediasoup/node/lib/TransportTypes";
+import { DtlsParameters } from "mediasoup/node/lib/WebRtcTransportTypes";
 
 let mediaSoupRouter: Router;
 let producerTransport: Transport;
@@ -19,6 +20,13 @@ const onCreateProducerTransport = async  (ws:WebSocket) =>{
     const message = JSON.stringify({data: params, type: 'producerTransportCreated', nature: 'response'});
     producerTransport = transport;
     ws.send(message);
+}
+const onConnectProducerTransport = async (dtlsParameters:DtlsParameters,ws:WebSocket) =>{
+    await producerTransport.connect({dtlsParameters });
+    ws.send(JSON.stringify({
+        type:"producerConnected",
+        
+    }))
 }
 
 
@@ -39,6 +47,9 @@ const websocketsManager = async (ws: WebSocketServer) => {
                     break;
                 case 'createProducerTransport':
                     onCreateProducerTransport(socket);  
+                    break;
+                case 'connectProducerTransport':
+                    onConnectProducerTransport(message.dtlsParameters,socket)
                     break;
             }
         });

@@ -14,9 +14,25 @@ const ProducerTransportCreated = async (event:any,device:Device,ws:WebSocket) =>
         }
 
         ws.send(JSON.stringify(message));
-        callback();
+        ws.addEventListener('message', (event) =>{
+            const message = JSON.parse(event.data);
+            if(message.type === 'producerConnected') {
+                callback();
+            } else {
+                errback(new Error('Failed to connect producer transport'));
+            }
+        })
         
         
+    });
+    transport.on('produce', async ({kind,rtpParameters},callback,errback) =>{
+        const message = {
+            type: 'produce',
+            kind,
+            rtpParameters,
+        }
+        
+        ws.send(JSON.stringify(message));
     })
 
 }
