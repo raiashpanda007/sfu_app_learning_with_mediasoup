@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 import CreateDevice from './WebRTC/CreateDevice';
+import { Device } from 'mediasoup-client/types';
+import ProducerTransportCreated from './WebRTC/ProducerTransportCreated';
 
 const socketURL = 'ws://localhost:3000';
 
 const useSocket = () => {
   const socketRef = useRef<WebSocket | null>(null);
+  const deviceRef = useRef<Device>(null);
 
   useEffect(() => {
     const ws = new WebSocket(socketURL);
@@ -19,8 +22,20 @@ const useSocket = () => {
       switch (message.type) {
         case 'getRouterRtpCapabilities':
           console.log('Router RTP Capabilities:', message.data);
-          await CreateDevice(message.data);
+          deviceRef.current = await CreateDevice(message.data);
           break;
+
+        case 'ProducerTransportCreated':
+          if(!deviceRef.current) {
+            console.error('Device not initialized');
+            return;
+          }
+          if (!socketRef.current) {
+            console.error('WebSocket not initialized');
+            return;
+          }
+          await ProducerTransportCreated(message.data, deviceRef.current, socketRef.current);
+          
       }
     };
 

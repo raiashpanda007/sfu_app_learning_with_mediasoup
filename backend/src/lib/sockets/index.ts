@@ -3,6 +3,7 @@ import { CreateWorker } from "../worker";
 import { Router } from "mediasoup/node/lib/RouterTypes";
 import CreateProducerTransport from '../WebRTC/CreateProducerTransport'
 import { Transport } from "mediasoup/node/lib/TransportTypes";
+
 let mediaSoupRouter: Router;
 let producerTransport: Transport;
 
@@ -15,7 +16,7 @@ const onRouterRtpCapabilities = (socket: WebSocket) => {
 
 const onCreateProducerTransport = async  (ws:WebSocket) =>{
     const { transport, params } = await CreateProducerTransport(mediaSoupRouter);
-    const message = JSON.stringify({data: params, type: 'ProducerTransportCreated', nature: 'response'});
+    const message = JSON.stringify({data: params, type: 'producerTransportCreated', nature: 'response'});
     producerTransport = transport;
     ws.send(message);
 }
