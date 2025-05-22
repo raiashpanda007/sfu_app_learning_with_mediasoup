@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  turn:
+    build: .
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "5349:5349"
+      - "5349:5349/udp"
+    command: ["turnserver", "-c", "/etc/coturn/turnserver.conf", "--no-cli"]
