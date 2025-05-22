@@ -25,6 +25,7 @@ class WebSocketHandler {
     this.router = workerPool.getRouter();
 
     this.wss.on('connection', (socket: WebSocket) => {
+        console.log('New client connected');
       this.clients.set(socket, { socket });
 
       socket.on('message', async (msg) => {

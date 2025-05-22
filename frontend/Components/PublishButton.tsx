@@ -1,17 +1,13 @@
-import { RtpCapabilities } from "mediasoup-client/types"
+"use client";
+type Props = {
+  publish: () => Promise<void>;
+  disabled?: boolean;
+};
 
-
-const Publish = (ws:WebSocket,rtpCapabilities:RtpCapabilities) =>{
-  const message = {
-    type: 'createWebRtcTransport',
-    rtpCapabilities: rtpCapabilities,
-    forceTcp: false,
-  }
-}
-function PublishButton(ws:WebSocket,rtpCapabilities:RtpCapabilities) {
+export default function PublishButton({ publish, disabled }: Props) {
   return (
-    <button onClick={()=>Publish(ws,rtpCapabilities)}>PublishButton</button>
-  )
+    <button onClick={publish} className="cursor-pointer" >
+      Publish
+    </button>
+  );
 }
-
-export default PublishButton

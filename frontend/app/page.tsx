@@ -1,12 +1,29 @@
-import PublishButton from "@/Components/PublishButton";
-import { useEffect } from "react";
-import useSocket from "@/hooks/useSocket";
-import CreateDevice from "@/hooks/WebRTC/CreateDevice";
-export default function Home() {
+'use client';
+
+import { useEffect, useState } from 'react';
+import useMediasoup from '@/hooks/useMediaSoup';
+
+export default function HomePage() {
+  const { publish } = useMediasoup();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div>
-      {/* Will Write it later just adding updates */}
+      <h1>SFU Local Test</h1>
+      {mounted && (
+        <video
+          id="local-video"
+          autoPlay
+          playsInline
+          muted
+          style={{ width: 400, height: 300, backgroundColor: 'black' }}
+        />
+      )}
+      <button onClick={publish}>Start Publishing</button>
     </div>
   );
 }

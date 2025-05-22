@@ -29,7 +29,7 @@ export const config = {
       listenIps: [
         {
           ip: '0.0.0.0',
-          announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1'
+          announcedIp: process.env.ANNOUNCED_IP || "106.196.51.228"
         }
       ] as TransportListenInfo[],
       maxIncomingBitrate: 1500000,

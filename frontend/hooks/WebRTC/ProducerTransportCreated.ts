@@ -1,72 +1,85 @@
-import { Device } from "mediasoup-client";
+import { Device } from 'mediasoup-client';
+import type { Transport } from 'mediasoup-client/types';
 
-const ProducerTransportCreated = async (event:any,device:Device,ws:WebSocket) =>{
-    if(event.error) {
-        console.error('Error creating producer transport:', event.error);
-        return;
+const ProducerTransportCreated = async (
+  event: any,
+  device: Device,
+  ws: WebSocket,
+  transport: Transport
+) => {
+  if (event.error) {
+    console.error('Error creating producer transport:', event.error);
+    return;
+  }
+
+  transport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+    try {
+      ws.send(JSON.stringify({
+        type: 'connectProducerTransport',
+        dtlsParameters
+      }));
+
+      const handler = (event: MessageEvent) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'producerConnected') {
+          ws.removeEventListener('message', handler);
+          callback();
+        } else {
+          ws.removeEventListener('message', handler);
+          errback(new Error('Failed to connect producer transport'));
+        }
+      };
+
+      ws.addEventListener('message', handler);
+    } catch (err:any) {
+        console.error('Error in connect event:', err);
+      errback(err);
     }
-    const transport = device.createSendTransport(event.data);
-    transport.on('connect' , async ({dtlsParameters},callback,errback) =>{
-        const message = {
-            type: 'connectProducerTransport',
-            dtlsParameters,
+  });
 
-        }
+  transport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+  ws.send(JSON.stringify({
+    type: 'produce',
+    data: { kind, rtpParameters }
+  }));
 
-        ws.send(JSON.stringify(message));
-        ws.addEventListener('message', (event) =>{
-            const message = JSON.parse(event.data);
-            if(message.type === 'producerConnected') {
-                callback();
-            } else {
-                errback(new Error('Failed to connect producer transport'));
-            }
-        })
-        
-        
-    });
-    transport.on('produce', async ({kind,rtpParameters},callback,errback) =>{
-        const message = {
-            type: 'produce',
-            data:{kind,
-            rtpParameters,}
-        }
-        
-        ws.send(JSON.stringify(message));
-        ws.addEventListener('message',(event)=>{
-            const message = JSON.parse(event.data);
-            if(message.type === 'produced') {
-                callback({id: message.id});
-            } else {
-                errback(new Error('Failed to produce'));
-            }
-        })
-    })
+  const handler = (event: MessageEvent) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'produced') {
+      ws.removeEventListener('message', handler);
+      // ← fix: read from msg.data.id
+      callback({ id: msg.data.id });
+    } else {
+      ws.removeEventListener('message', handler);
+      errback(new Error('Failed to produce'));
+    }
+  };
+  ws.addEventListener('message', handler);
+});
 
-    transport.on('connectionstatechange', (state) => {
-        switch (state) {
-            case 'connecting':
-                console.log('Producer transport connecting');
-                break;
-            case 'connected':
-                console.log('Producer transport connected');
-                break;
-            case 'failed':
-                console.error('Producer transport failed');
-                break;
-            case 'disconnected':
-                console.error('Producer transport disconnected');
-                break;
-            case 'closed':
-                console.error('Producer transport closed');
-                break;
-            default:
-                console.error('Unknown producer transport state:', state);
-                break;
-                
-        }
-    })
 
-}
+  transport.on('connectionstatechange', (state) => {
+    switch (state) {
+      case 'connecting':
+        console.log('Producer transport connecting...');
+        break;
+      case 'connected':
+        console.log('Producer transport connected.');
+        break;
+      case 'failed':
+        console.error('Producer transport failed.');
+        break;
+      case 'disconnected':
+        console.warn('Producer transport disconnected.');
+        break;
+      case 'closed':
+        console.warn('Producer transport closed.');
+        break;
+      default:
+        console.warn('Unknown state:', state);
+        break;
+    }
+  });
+};
 
 export default ProducerTransportCreated;
