@@ -6,7 +6,7 @@ import type {
 } from 'mediasoup/node/lib/types';
 
 export const config = {
-  listenIp: process.env.LISTEN_IP || '0.0.0.0',
+  listenIp: process.env.LISTEN_IP || '127.0.0.1',
   listenPort: Number(process.env.LISTEN_PORT) || 3016,
 
   mediasoup: {
@@ -28,8 +28,8 @@ export const config = {
     webRtcTransport: {
       listenIps: [
         {
-          ip: '0.0.0.0',
-          announcedIp: process.env.ANNOUNCED_IP || "106.196.51.228"
+          ip: '127.0.0.1',
+          announcedIp: process.env.ANNOUNCED_IP || null
         }
       ] as TransportListenInfo[],
       maxIncomingBitrate: 1500000,

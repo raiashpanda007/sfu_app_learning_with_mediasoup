@@ -57,7 +57,7 @@ export default function useMediasoup(): UseMediasoupReturn {
           iceParameters: msg.data.iceParameters,
           iceCandidates: msg.data.iceCandidates,
           dtlsParameters: msg.data.dtlsParameters,
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }], // add TURN here if needed
+          // add TURN here if needed
         });
 
         producerTransportRef.current = transport;

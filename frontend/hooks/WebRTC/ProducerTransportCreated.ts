@@ -2,13 +2,13 @@ import { Device } from 'mediasoup-client';
 import type { Transport } from 'mediasoup-client/types';
 
 const ProducerTransportCreated = async (
-  event: any,
+  data: any,
   device: Device,
   ws: WebSocket,
   transport: Transport
 ) => {
-  if (event.error) {
-    console.error('Error creating producer transport:', event.error);
+  if (data.error) {
+    console.error('Error creating producer transport:', data.error);
     return;
   }
 

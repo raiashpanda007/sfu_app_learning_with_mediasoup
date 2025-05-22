@@ -14,10 +14,12 @@ class ProducerTransport {
     const transport = await router.createWebRtcTransport({
       listenIps: opts.listenIps,
       enableUdp: true,
-      enableTcp: true,
+      enableTcp: false,
       preferUdp: true,
       initialAvailableOutgoingBitrate: opts.initialAvailableOutgoingBitrate
     });
+
+    console.log('🕵️  Producer transport listening on candidates:', transport.iceCandidates);
 
     if (opts.maxIncomingBitrate) {
       try {
@@ -42,7 +44,7 @@ class ProducerTransport {
     await this.transport.connect({ dtlsParameters });
   }
 
-  async produce(kind: 'audio'|'video', rtpParameters: any) {
+  async produce(kind: 'audio' | 'video', rtpParameters: any) {
     return this.transport.produce({ kind, rtpParameters });
   }
 

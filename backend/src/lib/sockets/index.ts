@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import WorkerPool from '../worker';
-import CreateProducerTransport from '../WebRTC/CreateProducerTransport';
+import ProducerTransport from '../WebRTC/CreateProducerTransport';
 import type { Router, Transport, Producer } from 'mediasoup/node/lib/types';
 import type { DtlsParameters } from 'mediasoup/node/lib/WebRtcTransportTypes';
 import type { MediaKind, RtpParameters } from 'mediasoup/node/lib/rtpParametersTypes';
@@ -64,15 +64,18 @@ class WebSocketHandler {
   }
 
   private async createProducerTransport(socket: WebSocket) {
-    const producerTransport = await CreateProducerTransport.create(this.router);
+    const producerTransport = await ProducerTransport.create(this.router);
     const params = producerTransport.params;
-
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' }
+    ];
     // Save the transport for this client
     const client = this.clients.get(socket);
     if (!client) return;
-    client.producerTransport = producerTransport['transport']; // accessing internal transport
+    client.producerTransport = producerTransport.transportInstance;
 
-    this.send(socket, 'producerTransportCreated', params);
+
+    this.send(socket, 'producerTransportCreated', {...params, iceServers});
   }
 
   private async connectProducerTransport(socket: WebSocket, dtlsParameters: DtlsParameters) {
@@ -102,7 +105,7 @@ class WebSocketHandler {
 
     this.send(socket, 'produced', { id: producer.id });
 
-    // Broadcast new producer event to other clients
+
     this.wss.clients.forEach((otherSocket) => {
       if (otherSocket !== socket && otherSocket.readyState === WebSocket.OPEN) {
         otherSocket.send(JSON.stringify({ type: 'newProducer', data: { producerId: producer.id } }));
@@ -114,7 +117,6 @@ class WebSocketHandler {
     const client = this.clients.get(socket);
     if (!client) return;
 
-    // Close transports & producers cleanly if needed
     if (client.producer) {
       client.producer.close();
     }
